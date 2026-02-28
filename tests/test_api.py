@@ -93,3 +93,45 @@ def test_invalid_pagination(client, query_parameters):
     response = client.get(f"/projects?{query_parameters}")
     assert response.status_code == 400
     assert "error" in response.get_json()
+
+
+def test_config_overrides():
+    from application import create_app
+
+    application = create_app({"TESTING": True, "CUSTOM_KEY": "custom_value"})
+    assert application.config["CUSTOM_KEY"] == "custom_value"
+
+
+def test_model_repr(client):
+    from application.models import Company, Project, ProjectAreaMap
+
+    company = Company(company_id="c1", company_name="Test Co")
+    assert "Test Co" in repr(company)
+
+    project = Project(
+        project_id="p1",
+        project_name="Test Project",
+        project_start="2025-01-01 00:00:00",
+        project_end="2026-01-01 00:00:00",
+        company_id="c1",
+        project_value=100,
+    )
+    assert "Test Project" in repr(project)
+
+    mapping = ProjectAreaMap(project_id="p1", area="London")
+    assert "p1" in repr(mapping)
+    assert "London" in repr(mapping)
+
+
+def test_database_error(client, monkeypatch):
+    from application import database
+
+    def raise_error(*args, **kwargs):
+        from sqlalchemy.exc import OperationalError
+        raise OperationalError("test", {}, Exception("db error"))
+
+    monkeypatch.setattr(database.session, "query", raise_error)
+
+    response = client.get("/projects?area=Manchester")
+    assert response.status_code == 500
+    assert "database error" in response.get_json()["error"].lower()

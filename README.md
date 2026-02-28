@@ -10,8 +10,17 @@ The database is an SQLite database, and the database file is provided in the `gl
 
 - Python (3.13.5+)
 - pip (25.1.1+)
+- Docker (optional)
 
 ## How to Run
+
+### With Docker
+
+```bash
+docker compose up
+```
+
+### Without Docker
 
 ```bash
 # 1. Create a virtual environment (most recommended way to run a Python application locally)

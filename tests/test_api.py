@@ -1,18 +1,5 @@
 import pytest
 
-from application import create_app, database
-
-
-@pytest.fixture()
-def client():
-    application = create_app()
-    application.config["TESTING"] = True
-    with application.app_context():
-        with application.test_client() as client:
-            yield client
-        database.session.remove()
-        database.engine.dispose()
-
 
 def test_valid_request_default_pagination(client):
     response = client.get("/projects?area=Manchester")
@@ -23,6 +10,7 @@ def test_valid_request_default_pagination(client):
     assert data["page"] == 1
     assert data["per_page"] == 10
     assert isinstance(data["total"], int)
+    assert isinstance(data["total_pages"], int)
     assert len(data["projects"]) <= 10
 
     project = data["projects"][0]
@@ -54,6 +42,28 @@ def test_sorting_order(client):
                 and current_project["project_name"] <= next_project["project_name"]
             )
         ), f"Sort violation at index {iteration}: {current_project} vs {next_project}"
+
+
+def test_per_page_capped_at_max(client):
+    response = client.get("/projects?area=Manchester&per_page=999")
+    assert response.status_code == 200
+
+    data = response.get_json()
+    assert data["per_page"] == 100
+
+
+def test_total_pages_in_response(client):
+    response = client.get("/projects?area=Manchester&per_page=5")
+    assert response.status_code == 200
+
+    data = response.get_json()
+    assert data["total_pages"] == -(-data["total"] // 5)  # ceil division
+
+
+def test_page_out_of_range(client):
+    response = client.get("/projects?area=Manchester&page=9999")
+    assert response.status_code == 400
+    assert "out of range" in response.get_json()["error"].lower()
 
 
 def test_missing_area(client):

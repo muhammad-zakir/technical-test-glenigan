@@ -39,6 +39,10 @@ The API will be available at `http://localhost:5000`.
 ## Running Tests
 
 ```bash
+# With Docker
+docker compose run --rm test
+
+# Without Docker
 python -m pytest tests/ -v
 ```
 

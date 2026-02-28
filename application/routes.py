@@ -1,3 +1,5 @@
+import math
+
 from flask import Blueprint, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -5,6 +7,8 @@ from application import database
 from application.models import Company, Project, ProjectAreaMap
 
 api = Blueprint("api", __name__)
+
+MAX_PER_PAGE = 100
 
 
 def _validate_pagination_param(value, name, default):
@@ -28,6 +32,10 @@ def _validate_pagination_param(value, name, default):
     return integer_value, None
 
 
+def _clamp_per_page(value):
+    return min(value, MAX_PER_PAGE)
+
+
 @api.route("/projects", methods=["GET"])
 def get_projects():
     area = request.args.get("area")
@@ -44,6 +52,8 @@ def get_projects():
     if error:
         return error
 
+    per_page = _clamp_per_page(per_page)
+
     try:
         query = (
             database.session.query(Project, Company.company_name)
@@ -59,6 +69,16 @@ def get_projects():
             return (
                 jsonify({"error": f"No projects found for area: '{area}'"}),
                 404,
+            )
+
+        total_pages = math.ceil(total / per_page)
+
+        if page > total_pages:
+            return (
+                jsonify({
+                    "error": f"Page {page} is out of range (total pages: {total_pages})"
+                }),
+                400,
             )
 
         offset = (page - 1) * per_page
@@ -78,6 +98,7 @@ def get_projects():
             "page": page,
             "per_page": per_page,
             "total": total,
+            "total_pages": total_pages,
             "projects": projects,
         }
     )
